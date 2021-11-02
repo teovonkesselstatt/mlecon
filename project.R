@@ -1,6 +1,6 @@
 setwd("C:/Users/teovo/Google Drive/DI TELLA/8vo semestre/Machine Learning/mlecon")
 
-### Cargamos las librerías: 
+### Cargamos las librerías:
 
 require(glmnet)|| install.packages('glmnet')  #regularización de modelos lineales
 require(ROCR)  || install.packages('ROCR')
@@ -8,7 +8,7 @@ require(ggplot2) || install.packages('ggplot2')
 library(glmnet)
 library(ROCR)
 library(ggplot2)
-require(FNN) || install.packages('FNN')  
+require(FNN) || install.packages('FNN')
 
 rm(list=ls()) # Limpiamos la memoria.
 dev.off()     # Limpiamos la ventana gráfica
@@ -29,8 +29,8 @@ datos = read.table('online_shoppers_intention.CSV',
 # "Product Related Duration": total time spent on those pages
 
 # "Bounce Rate": percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
-# "Exit Rate":  the percentage of pageviews that were the last in the session. 
-# "Page Value": average value for a web page that a user visited before completing an e-commerce transaction. 
+# "Exit Rate":  the percentage of pageviews that were the last in the session.
+# "Page Value": average value for a web page that a user visited before completing an e-commerce transaction.
 
 # "Special Day": indicates the closeness of the site visiting time to a specific special day
 # "Month": No hay enero ni abril
@@ -43,8 +43,8 @@ datos = read.table('online_shoppers_intention.CSV',
 # "Weekend": Boolean for weekend or not
 # "Revenue": If the person bought or not
 
-### MISSINGS: 
-sum(is.na(datos)==TRUE)  #No hay missings 
+### MISSINGS:
+sum(is.na(datos)==TRUE)  #No hay missings
 
 # Hago que todos los chr sean factor
 
@@ -102,5 +102,13 @@ g7 <- ggplot(data=datos, aes(TrafficType))+
 
 g7
 
-attach(datos) # adjuntamos las variables del data frame en R.
+# Analisis de variables numericas
+
+g8 <- ggplot(data=datos, aes(SpecialDay, color = Revenue, fill = Revenue))+
+  geom_density(alpha = 0.1)
+g8
+
+g9 <- ggplot(data=datos, aes(ProductRelated_Duration, color = Revenue, fill = Revenue))+
+  geom_density(alpha = 0.1)
+g9
 
