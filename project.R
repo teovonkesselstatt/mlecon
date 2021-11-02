@@ -102,16 +102,5 @@ g7 <- ggplot(data=datos, aes(TrafficType))+
 
 g7
 
-# Analisis de variables numericas
-
-g8 <- ggplot(data=datos, aes(SpecialDay, color = Revenue, fill = Revenue))+
-  geom_density(alpha = 0.1)
-g8
-
-g9 <- ggplot(data=datos, aes(ProductRelated_Duration, color = Revenue, fill = Revenue))+
-  geom_density(alpha = 0.1)
-g9
-
-
-
+attach(datos) # adjuntamos las variables del data frame en R.
 
