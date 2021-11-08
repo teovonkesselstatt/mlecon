@@ -115,3 +115,5 @@ g9
 g10 <- ggplot(data=datos, aes(ProductRelated, color = Revenue, fill = Revenue))+
   geom_density(alpha = 0.1)
 g10
+
+##testing
