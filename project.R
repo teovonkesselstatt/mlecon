@@ -30,11 +30,11 @@ datos$Revenue <- factor(datos$Revenue)
 datos$Weekend <- factor(datos$Weekend)
 
 ################################################################################
-#######################      ordenamos los datos 
+#######################      ordenamos los datos
 ################################################################################
 
 set.seed(123)
-datos2 <- datos[sample(nrow(datos)),] 
+datos2 <- datos[sample(nrow(datos)),]
 
 mat = model.matrix(~.-1,datos2)
 
@@ -51,28 +51,28 @@ for(i in 1:6){ # i recorre los valores del parámetro k.
   TE.kfold = c()
   for(j in 1:10){ # j-recorre los folds
     index.train = which(folds!=j) # j recorre los folds.
-    
+
     train = mat[index.train,]
     test = mat[-index.train,]
     train_y = mat[index.train,70]
     test_y = mat[-index.train,70]
-    
+
     test_pred <- knn(train = train, test = test, cl = as.factor(train_y), k = valores.k[i])
-    
+
     TE.kfold[j] = 1 - sum(diag(table(test_y, test_pred))) / length(test_y)
 
   }
-  
+
   TE[i] = mean(TE.kfold)
   TE.sd[i] = sd(TE.kfold)
-  print(i)  
+  print(i)
 
   }
 
 TE
 TE.sd
 
-# Plot de mi primer selección de parámetros por VC (que emoción!) 
+# Plot de mi primer selección de parámetros por VC (que emoción!)
 plot(valores.k, TE, type='b',pch=20, main='10-fold VC') # :)
 
 valores.k[which(TE==min(TE))]
@@ -91,28 +91,33 @@ for(i in (1:length(valores.k))){ # i recorre los valores del parámetro k.
   TE.kfold = c()
   for(j in 1:10){ # j-recorre los folds
     index.train = which(folds!=j) # j recorre los folds.
-    
+
     train = mat[index.train,]
     test = mat[-index.train,]
     train_y = mat[index.train,70]
     test_y = mat[-index.train,70]
-    
+
     test_pred <- knn(train = train, test = test, cl = as.factor(train_y), k = valores.k[i])
-    
+
     TE.kfold[j] = 1 - sum(diag(table(test_y, test_pred))) / length(test_y)
-    
+
   }
-  
+
   TE[i] = mean(TE.kfold)
   TE.sd[i] = sd(TE.kfold)
-  print(i)  
-  
+  print(i)
+
 }
 
-# Plot de mi primer selección de parámetros por VC (que emoción!) 
+# Plot de mi primer selección de parámetros por VC (que emoción!)
 plot(valores.k[-c(1,2)], TE[-c(1,2)], type='b',pch=20, main='10-fold VC') # :)
 
 valores.k[which(TE==min(TE))]
 
 TE[which(TE==min(TE))]
 
+g10 <- ggplot(data=datos, aes(ProductRelated, color = Revenue, fill = Revenue))+
+  geom_density(alpha = 0.1)
+g10
+
+##testing
