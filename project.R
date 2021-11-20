@@ -2,51 +2,18 @@ setwd("C:/Users/teovo/Google Drive/DI TELLA/8vo semestre/Machine Learning/mlecon
 
 ### Cargamos las librerías:
 
-require(glmnet)|| install.packages('glmnet')  #regularización de modelos lineales
-require(ROCR)  || install.packages('ROCR')
-require(ggplot2) || install.packages('ggplot2')
 library(glmnet)
 library(ROCR)
 library(ggplot2)
-require(FNN) || install.packages('FNN')
+library(FNN)
+library(class)
+
 
 rm(list=ls()) # Limpiamos la memoria.
 dev.off()     # Limpiamos la ventana gráfica
 
 datos = read.table('online_shoppers_intention.CSV',
                    sep=',',header=T,dec='.',na.strings = "N/A")
-
-######################################################
-################## Analisis Exploratorio #############
-######################################################
-
-#### Diccionario de variables:
-# "Administrative": number of different administrative pages visited in that session
-# "Administrative Duration": total time spent on those pages
-# "Informational": number of different informational pages visited in that session
-# "Informational Duration": total time spent on those pages
-# "Product Related": number of different product related pages visited in that session
-# "Product Related Duration": total time spent on those pages
-
-# "Bounce Rate": percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
-# "Exit Rate":  the percentage of pageviews that were the last in the session.
-# "Page Value": average value for a web page that a user visited before completing an e-commerce transaction.
-
-# "Special Day": indicates the closeness of the site visiting time to a specific special day
-# "Month": No hay enero ni abril
-# "Operating Systems"
-# "Browser"
-# "Region"
-# "Traffic Type": ??
-
-# "Visitor type": ??
-# "Weekend": Boolean for weekend or not
-# "Revenue": If the person bought or not
-
-### MISSINGS:
-sum(is.na(datos)==TRUE)  #No hay missings
-
-# Hago que todos los chr sean factor
 
 datos$Revenue <- gsub(FALSE, 0, datos$Revenue)
 datos$Revenue <- gsub(TRUE, 1, datos$Revenue)
@@ -62,56 +29,90 @@ datos$VisitorType <- factor(datos$VisitorType)
 datos$Revenue <- factor(datos$Revenue)
 datos$Weekend <- factor(datos$Weekend)
 
+################################################################################
+#######################      ordenamos los datos 
+################################################################################
 
-# Vemos cuántas observaciones de cada categoría hay:
-table(datos$Revenue)
+set.seed(123)
+datos2 <- datos[sample(nrow(datos)),] 
 
-### VARIABLES CATEGÓRICAS
-g1 <- ggplot(data=datos, aes(Month))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+mat = model.matrix(~.-1,datos2)
 
-g1
+# Creo 10 'folds'
 
-g2 <- ggplot(data=datos, aes(VisitorType))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+folds <- cut(seq(1,nrow(mat)),breaks=10,labels=FALSE)
 
-g2
+valores.k = c(5,10,25,50,100,200)
 
-g3 <- ggplot(data=datos, aes(Weekend))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+TE = c(); # Para cada valor del parámetro computamos el promedio de 10 estimaciones del TEE
+TE.sd = c();   # Para cada valor del parámetro computamos el sd del estimador del TEE
 
-g3
+for(i in 1:6){ # i recorre los valores del parámetro k.
+  TE.kfold = c()
+  for(j in 1:10){ # j-recorre los folds
+    index.train = which(folds!=j) # j recorre los folds.
+    
+    train = mat[index.train,]
+    test = mat[-index.train,]
+    train_y = mat[index.train,70]
+    test_y = mat[-index.train,70]
+    
+    test_pred <- knn(train = train, test = test, cl = as.factor(train_y), k = valores.k[i])
+    
+    TE.kfold[j] = 1 - sum(diag(table(test_y, test_pred))) / length(test_y)
 
-g4 <- ggplot(data=datos, aes(OperatingSystems))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+  }
+  
+  TE[i] = mean(TE.kfold)
+  TE.sd[i] = sd(TE.kfold)
+  print(i)  
 
-g4
+  }
 
-g5 <- ggplot(data=datos, aes(Browser))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+TE
+TE.sd
 
-g5
+# Plot de mi primer selección de parámetros por VC (que emoción!) 
+plot(valores.k, TE, type='b',pch=20, main='10-fold VC') # :)
 
-g6 <- ggplot(data=datos, aes(Region))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
+valores.k[which(TE==min(TE))]
 
-g6
+TE[which(TE==min(TE))]
 
-g7 <- ggplot(data=datos, aes(TrafficType))+
-  geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
 
-g7
+# ZOOM IN
 
-# Analisis de variables numericas
+valores.k = c(2,4,6,8,10,12,14,16,18,20,22,24,26,28,30)
 
-g8 <- ggplot(data=datos, aes(SpecialDay, color = Revenue, fill = Revenue))+
-  geom_density(alpha = 0.1)
-g8
+TE = c(); # Para cada valor del parámetro computamos el promedio de 10 estimaciones del TEE
+TE.sd = c();   # Para cada valor del parámetro computamos el sd del estimador del TEE
 
-g9 <- ggplot(data=datos, aes(ProductRelated_Duration, color = Revenue, fill = Revenue))+
-  geom_density(alpha = 0.1)
-g9
+for(i in (1:length(valores.k))){ # i recorre los valores del parámetro k.
+  TE.kfold = c()
+  for(j in 1:10){ # j-recorre los folds
+    index.train = which(folds!=j) # j recorre los folds.
+    
+    train = mat[index.train,]
+    test = mat[-index.train,]
+    train_y = mat[index.train,70]
+    test_y = mat[-index.train,70]
+    
+    test_pred <- knn(train = train, test = test, cl = as.factor(train_y), k = valores.k[i])
+    
+    TE.kfold[j] = 1 - sum(diag(table(test_y, test_pred))) / length(test_y)
+    
+  }
+  
+  TE[i] = mean(TE.kfold)
+  TE.sd[i] = sd(TE.kfold)
+  print(i)  
+  
+}
 
-g10 <- ggplot(data=datos, aes(ProductRelated, color = Revenue, fill = Revenue))+
-  geom_density(alpha = 0.1)
-g10
+# Plot de mi primer selección de parámetros por VC (que emoción!) 
+plot(valores.k[-c(1,2)], TE[-c(1,2)], type='b',pch=20, main='10-fold VC') # :)
+
+valores.k[which(TE==min(TE))]
+
+TE[which(TE==min(TE))]
+
