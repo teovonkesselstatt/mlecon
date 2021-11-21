@@ -14,7 +14,7 @@ library(FNN)
 rm(list=ls()) # Limpiamos la memoria.
 dev.off()     # Limpiamos la ventana gráfica
 
-datos = read.table('online_shoppers_intention.CSV',
+datos = read.table('online_shoppers_intention.csv',
                    sep=',',header=T,dec='.',na.strings = "N/A")
 
 ######################################################
@@ -144,9 +144,41 @@ grid.arrange(g9, g10, g11, g12, ncol=2)
 require(corrplot) || install.packages('corrplot')  
 library(corrplot)
 
-numeric.var <- sapply(churn, is.numeric)
-corr.matrix <- cor(churn[,numeric.var])
+numeric.var <- sapply(datos$Administrative, numeric.var)
+corr.matrix <- cor(datos$Administrative[,numeric.var])
 corrplot(corr.matrix, main="\nCorrelation Plot for Numerical Variables", method="number")
 
+$$$$$$$$$$$$$$$$$$$Sacando Outliers$$$$$$$$$$$$$$$$$
+  
+
+datos$log = log(datos$Administrative_Duration + 1)
+boxplot(datos$log)
+
+boxplot(datos$Revenue)
+plot(datos$Weekend,datos$Revenue)
+
+plot(datos$OperatingSystems,datos$Administrative_Duration)
+
+datos$administrative1 <- datos[datos$Administrative ==0,]
+  
+boxplot(datos$OperatingSystems if datos$OperatingSystems>0)
+
+remove = c(0)
+hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
+hola$log = log(hola$Administrative_Duration)
+boxplot(hola$log)
+
+$Reescalando los outliers superiores$
+{q0.01 = quantile(datos$Administrative_Duration, 0.01)  
+q0.99 = quantile(datos$Administrative_Duration, 0.99) 
+datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99}
+
+$Volviendo a graficar para chequear que nos da bien la reescalación$
+hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
+hola$log = log(hola$Administrative_Duration)
+boxplot(hola$log)
+
+
+boxplot(datos$Administrative)
 
 
