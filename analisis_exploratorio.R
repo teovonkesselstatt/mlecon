@@ -48,7 +48,6 @@ datos = read.table('online_shoppers_intention.csv',
 sum(is.na(datos)==TRUE)  #No hay missings
 
 # Hago que todos los chr sean factor
-
 datos$Revenue <- gsub(FALSE, 0, datos$Revenue)
 datos$Revenue <- gsub(TRUE, 1, datos$Revenue)
 datos$Weekend <- gsub(TRUE, 1, datos$Weekend)
@@ -63,62 +62,45 @@ datos$VisitorType <- factor(datos$VisitorType)
 datos$Revenue <- factor(datos$Revenue)
 datos$Weekend <- factor(datos$Weekend)
 
-
 # Vemos cuántas observaciones de cada categoría hay:
-]
 
 ### VARIABLES CATEGÓRICAS
 g1 <- ggplot(data=datos, aes(Month))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g1
-
 table(datos$Month)
 
 g2 <- ggplot(data=datos, aes(VisitorType))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g2
-
 table(datos$VisitorType)
 
 g3 <- ggplot(data=datos, aes(Weekend))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g3
-
 table(datos$Weekend)
 
 g4 <- ggplot(data=datos, aes(OperatingSystems))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g4
-
 table(datos$OperatingSystems)
 
 g5 <- ggplot(data=datos, aes(Browser))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g5
-
 table(datos$Browser)
 
 g6 <- ggplot(data=datos, aes(Region))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g6
-
 table(datos$Region)
 
 g7 <- ggplot(data=datos, aes(TrafficType))+
   geom_bar(aes(fill=Revenue), position="fill") # podemos graficar por categorias!
-
 g7
-
 table(datos$TrafficType)
 
 # Analisis de variables numericas
-
 g8 <- ggplot(data=datos, aes(SpecialDay, color = Revenue, fill = Revenue))+
   geom_density(alpha = 0.1)
 g8
@@ -139,7 +121,6 @@ grid.arrange(g1, g2, g3, g4,  ncol=2)
 grid.arrange(g5, g6, g7, g8, ncol=2)
 grid.arrange(g9, g10, g11, g12, ncol=2)
 
-
 ## CORRELACION ENTRE VARIABLES (Graficos lindos de correlaciones)
 require(corrplot) || install.packages('corrplot')  
 library(corrplot)
@@ -148,8 +129,8 @@ numeric.var <- sapply(datos$Administrative, numeric.var)
 corr.matrix <- cor(datos$Administrative[,numeric.var])
 corrplot(corr.matrix, main="\nCorrelation Plot for Numerical Variables", method="number")
 
-############ Sacando Outliers ###########
-
+###Sacando Outliers###
+  
 datos$log = log(datos$Administrative_Duration + 1)
 boxplot(datos$log)
 
@@ -159,7 +140,7 @@ plot(datos$Weekend,datos$Revenue)
 plot(datos$OperatingSystems,datos$Administrative_Duration)
 
 datos$administrative1 <- datos[datos$Administrative ==0,]
-  
+
 boxplot(datos$OperatingSystems if datos$OperatingSystems>0)
 
 remove = c(0)
@@ -168,67 +149,55 @@ hola$log = log(hola$Administrative_Duration)
 boxplot(hola$log)
 
 #Reescalando los outliers superiores#
+q0.01 = quantile(datos$Administrative_Duration, 0.01)  
 q0.99 = quantile(datos$Administrative_Duration, 0.99) 
 datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99
 
-$Volviendo a graficar para chequear que nos da bien la reescalación$
-hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
-hola$log = log(hola$Administrative_Duration)
+#Volviendo a graficar para chequear que nos da bien la reescalación#
+hola <- subset(datos, !(datos$Administrative_Duration))
+hola$log = log(hola$Administrative_Duration+1)
 boxplot(hola$log)
 
 boxplot(datos$Administrative)
 
-q0.99 = quantile(datos$Administrative, 0.99) 
-datos$Administrative[which(datos$Administrative>q0.99)] = q0.99
-
-boxplot(datos$Administrative)
-
 boxplot(datos$Informational)
-
 q0.99 = quantile(datos$Informational, 0.99) 
 datos$Informational[which(datos$Informational>q0.99)] = q0.99
 boxplot(datos$Informational)
 
 boxplot(datos$ProductRelated)
-
 q0.99 = quantile(datos$ProductRelated, 0.99) 
 datos$ProductRelated[which(datos$ProductRelated>q0.99)] = q0.99
 boxplot(datos$ProductRelated)
 
 boxplot(datos$ProductRelated_Duration)
-
 q0.99 = quantile(datos$ProductRelated_Duration, 0.99) 
 datos$ProductRelated_Duration[which(datos$ProductRelated_Duration>q0.99)] = q0.99
 boxplot(datos$ProductRelated_Duration)
 
-##############Ploteo Conjunto de Variables##################
+#Ploteo Conjunto de Variables
 
 plot(datos$ProductRelated_Duration,datos$ProductRelated, col=datos$Revenue)
 plot(datos$SpecialDay,datos$ProductRelated_Duration, col=datos$Revenue)
 plot(datos$Month,datos$SpecialDay, col=datos$Revenue)
 plot(datos$Weekend,datos$SpecialDay, col=datos$Revenue)
-
 plot(datos$Administrative_Duration,datos$Month,col=datos$Revenue)
 plot(datos$OperatingSystems,datos$Administrative_Duration,col=datos$Revenue)
 plot(datos$Browser,datos$Administrative_Duration,col=datos$Revenue)
-
 plot(datos$Informational_Duration,datos$Administrative_Duration,col=datos$Revenue)
 plot(datos$ProductRelated_Duration,datos$Administrative_Duration,col=datos$Revenue)
 
 ############## 3/12/21 ##############
 
 #viendo un poco más distribución de variables.
-#ni ahi normalidad.
+#ni ahi hay normalidad.
 hist(datos$Administrative)
 hist(datos$Administrative_Duration)
 hist(datos$ProductRelated)
 hist(datos$ProductRelated_Duration)
 hist(datos$SpecialDay)
 
-# Regresi?n robusta: (copiada de Gabriel)
-summary(r.rob <- rlm(crime ~ poverty + single, data = cdata))
-# El coef asociado a poverty (no significativo al 5%) ahora es positivo. 
-
-w <- data.frame(state = cdata$state, resid = r.rob$resid, weight = r.rob$w)
+# Regresión robusta: (copiada de Gabriel)
+r.weights <- rlm(datos$Revenue ~ ., data = datos)
+w <- data.frame(Revenue = datos$Revenue, resid = r.weights$resid, weight = r.weights$w)
 w[c(1,2,3,9, 25, 51),]
-# --------------------------------------------------------------End.
