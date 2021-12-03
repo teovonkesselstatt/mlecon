@@ -149,7 +149,6 @@ hola$log = log(hola$Administrative_Duration)
 boxplot(hola$log)
 
 #Reescalando los outliers superiores#
-q0.01 = quantile(datos$Administrative_Duration, 0.01)  
 q0.99 = quantile(datos$Administrative_Duration, 0.99) 
 datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99
 
@@ -201,3 +200,38 @@ hist(datos$SpecialDay)
 r.weights <- rlm(datos$Revenue ~ ., data = datos)
 w <- data.frame(Revenue = datos$Revenue, resid = r.weights$resid, weight = r.weights$w)
 w[c(1,2,3,9, 25, 51),]
+
+#Sacando variables
+datos$BounceRates=NULL
+datos$ExitRates=NULL
+datos$PageValues=NULL
+
+#metiendo variables nuevas
+#1
+mean(datos$PageValues)
+hist(datos$PageValues)
+datos$PageValuesH = ifelse(datos$PageValues > 12, 1, 0)
+datos = datos[,c(1:17,19,18)]
+#empeora un touch
+
+#2
+datos$PageValuesH=NULL
+
+mean(datos$Administrative)
+hist(datos$Administrative)
+datos$AdministrativeH = ifelse(datos$Administrative > 5, 1, 0)
+datos = datos[,c(1:17,19,18)]
+#empeora un touch
+
+#3
+datos$AdministrativeH=NULL
+
+mean(datos$ProductRelated)
+q0.75 = quantile(datos$ProductRelated, 0.75)
+q0.75
+hist(datos$ProductRelated)
+datos$ProductRelatedH = ifelse(datos$ProductRelated > 38, 1, 0)
+datos = datos[,c(1:17,19,18)]
+#mejora medio porciento la tasa de error y lo otro no cambia
+
+#todo esto último analizando una por una, no todas a la vez, y en el benchmark
