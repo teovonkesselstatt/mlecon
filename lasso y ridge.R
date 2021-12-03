@@ -80,6 +80,7 @@ alpha.opt
 
 ############################# Mejor Modelo: ####################################
 
+set.seed(123)
 ridge.cv = cv.glmnet(x = x_train, 
                      y = y_train,
                      family = 'binomial', # problema de clasificación
@@ -108,7 +109,7 @@ perf2 <- performance(pred2,"tpr","fpr")
 plot(perf2, main="Curva ROC en el conjunto de TEST", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
-auc_test@y.values[[1]] # 0.8878
+auc_test@y.values[[1]] # 0.8885 IMPORTANTE
 
 
 ######################## ELIGIENDO EL THRESHOLD ################################
@@ -133,13 +134,12 @@ for(i in 1:length(thresh)){
   F2.est[i] = (1+beta^2)*(prec*rec)/((beta^2)*prec + rec)
 }
 
-F2.est 
 plot(thresh, F2.est, type = 'b', bty = 'n')
 thresh.opt = thresh[which(F2.est==max(F2.est))]
 abline(v = thresh.opt , col = 'red', lty = 2 )
 
 # Diferencia de Punto de Corte Optimo vs Prob a Priori
-thresh.opt;  prob_priori # 
+thresh.opt;  prob_priori # 0.1291 y 0.1523
 
 # Performance en Test:
 pred_test = predict(ridge.reg, s = bestlam , newx = x_test, type = 'response')
@@ -156,8 +156,8 @@ matriz.confusion = table(y_hat, y_test)
 matriz.confusion
 
 tasa_error_test = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-tasa_error_test # 14.51% USANDO THRESH.OPT. 
-F2.est # 70.36 DE F2 score!
+tasa_error_test # 15.17% USANDO THRESH.OPT. 
+F2.est # 70.85 DE F2 score!
 
 # Lo que estamos haciendo es lo siguiente:
 # 1. Separamos los datos entre train, validation y test. 

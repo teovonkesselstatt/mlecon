@@ -1,5 +1,5 @@
 ################################################################################
-#################     Benchmark: Regresion Logistica
+#################     Benchmark: Regresion Logistica                           #
 ################################################################################
 
 set.seed(123); id = sample(nrow(datos),0.8*nrow(datos))
@@ -12,17 +12,29 @@ Test=datos[-id,]  # Conjunto de test
 matrix_train = model.matrix( ~ .-1, Train)
 matrix_test = model.matrix(~.-1, Test)
 
-dim(matrix_train)
-dim(matrix_test)
+set.seed(123); val_id = sample(nrow(matrix_train),0.3*nrow(matrix_train))
 
-# x_train <- as.matrix(matrix_train[,-70])
-x_train <- matrix_train[,-70]
+matrix_val = matrix_train[val_id,]
+matrix_train2 = matrix_train[-val_id,]
+
+x_train <- matrix_train2[,-ncol(matrix_train2)]
+y_train = as.matrix(matrix_train2[,ncol(matrix_train2)]) # 0/1 flag.
+
+x_test <- as.matrix(matrix_test[,-ncol(matrix_test)])
+y_test<- as.matrix(matrix_test[,ncol(matrix_test)])
+
+x_val <- as.matrix(matrix_val[,-ncol(matrix_val)])
+y_val <- as.matrix(matrix_val[,ncol(matrix_val)])
+
 dim(x_train)
-y_train = as.matrix(matrix_train[,70]) # 0/1 flag.
 dim(y_train)
+dim(x_val)
+dim(y_val)
+dim(x_test)
+dim(y_test)
 
-x_test <- as.matrix(matrix_test[,-70])
-y_test<- as.matrix(matrix_test[,70])
+freq_table <- table(y_train) / dim(y_train)[1] 
+prob_priori <- as.numeric(freq_table[2])
 
 ######################################################
 ######### REGRESION LOGISTICA  #######################
@@ -31,40 +43,17 @@ y_test<- as.matrix(matrix_test[,70])
 logit.reg = glmnet(x = x_train, 
                    y = y_train,
                    family = 'binomial', # problema de clasificación
-                   alpha = 1 , 
-                   lambda = 0, # sin regularizacion
-                   standardize = TRUE)
-
-# Ver resumen del modelo:
-summary(logit.reg$beta)
-
-# Tabla de frecuencias (churn y no-churn)
-freq_table <- table(y_train) / dim(y_train)[1] 
-prob_priori <- as.numeric(freq_table[2])
-freq_table
-prob_priori # Probabilidad de que un dato de Train sea Revenue:  15.53%
+                   alpha = 1, 
+                   lambda = 0) # sin regularizacion (reg logistica normal)
 
 
-pred_tr = predict(logit.reg, s = 0 , newx = x_train, type = 'response')
+pred_tr = predict(logit.reg, s = 0, newx = x_train, type = 'response')
 
 
 ####################### Performance en el TRAIN: ###############################
 
 # El umbral de corte que vamos a usar para decidir sobre una nueva observacion
 # si prob>prob_priori --> clasificamos como 1
-
-y_hat = as.numeric(pred_tr >= prob_priori) 
-
-
-# Matriz de Confusion
-matriz.confusion = table(y_hat, y_train)
-matriz.confusion
-
-tasa_error_tr = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-
-######################################################
-tasa_error_tr # 16.28% USANDO PROB PRIORI EN TRAIN ###
-######################################################
 
 pred_train <- prediction(pred_tr, y_train)
 perf_train <- performance(pred_train,"tpr","fpr")
@@ -73,30 +62,12 @@ perf_train <- performance(pred_train,"tpr","fpr")
 plot(perf_train, main="Curva ROC en el conjunto de TRAIN", colorize=T)
 
 auc <- performance(pred_train, measure = "auc")
-auc@y.values[[1]] # 0.9055
+auc@y.values[[1]] # 0.9045
 
 ####################### Performance en el TEST: ################################
 
-
 # Predicciones sobre datos TEST 
 pred_test = predict(logit.reg, s = 0 , newx = x_test, type = 'response')
-
-# Clasificamos en [0,1] en funcion de una probababilidad a priori
-y_hat = as.numeric(pred_test >= prob_priori) 
-
-# Matriz de Confusion
-matriz.confusion = table(y_hat, y_test)
-matriz.confusion
-
-# Matriz expresada en prob.
-# matriz.confusion/dim(y_test)[1]*100
-
-# Tasa de error 
-tasa_error <- 1-sum(diag(matriz.confusion))/sum(matriz.confusion)
-
-##################################################
-tasa_error # 18.65% USANDO PROB PRIORI EN TEST ###
-##################################################
 
 pred2 <- prediction(pred_test, y_test)
 perf2 <- performance(pred2,"tpr","fpr")
@@ -105,20 +76,12 @@ perf2 <- performance(pred2,"tpr","fpr")
 plot(perf2, main="Curva ROC en el conjunto de TEST", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
-auc_test@y.values[[1]] # 0.8745
+auc_test@y.values[[1]] # 0.8671 IMPORTANTE
 
 
 ######################## ELIGIENDO EL THRESHOLD ################################
 
 # Hago Validation Set Approach
-
-set.seed(1); val_id = sample(nrow(matrix_train),0.3*nrow(matrix_train))
-
-matrix_val = matrix_train[val_id,]
-matrix_train2 = matrix_train[-val_id,]
-
-x_val <- as.matrix(matrix_val[,-70])
-y_val <- as.matrix(matrix_val[,70])
 
 # Predicciones sobre datos de VALIDACION
 pred_val = predict(logit.reg, s = 0 , newx = x_val, type = 'response')
@@ -145,7 +108,7 @@ thresh.opt = thresh[which(F2.est==max(F2.est))]
 abline(v = thresh.opt , col = 'red', lty = 2 )
 
 # Diferencia de Punto de Corte Optimo vs Prob a Priori
-thresh.opt;  prob_priori
+thresh.opt;  prob_priori # 0.1337 y 0.1534
 
 # Performance en Test:
 pred_test = predict(logit.reg, s = 0 , newx = x_test, type = 'response')
@@ -162,152 +125,8 @@ matriz.confusion = table(y_hat, y_test)
 matriz.confusion
 
 tasa_error_test = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-tasa_error_test # 18.32% USANDO THRESH.OPT. 
-F2.est # 64.90 DE F2 score!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-################################################################################
-########################### USANDO REWEIGHTING #################################
-################################################################################
-
-####################
-#  2. REWEIGHTING  #
-####################
-
-# Nuevo Hiperparámetro: gamma
-# gamma en (0,1) es un hiperparámetro con el que
-# controlo cuanto over/under-sampling hago de cada clase. 
-# Mide el peso que le damos a las aboservaciones al momento de entrenar el modelo.  
-# EJEMPLO: gamma=0.1 
-#         Le damos peso 1,1 a las obs churn=yes, y peso 0.9 a las churn=no
-
-
-# Ajustando lambda vía 5-fold cross-validation y gamma con validation set approach.  
-gamma =  seq(0.6,0.9,length.out = 100)
-F2.gamma = c() 
-
-for(j in 1:length(gamma)){
-  w = ifelse(Train$Revenue == 1, 1+gamma[j], 1-gamma[j]) #Le damos los pesos a las observaciones
-  logit.reg = glmnet(x = x_train,y = y_train, weights = w,
-                          family = 'binomial', alpha = 1,lambda = 0)
-  pred_val = predict(logit.reg, s = 0 , newx = x_val, type = 'response')
-  thresh = seq(0.05,0.5,length.out = 200)
-
-  # Optimizamos el threshold eligiendo el que maximiza F1.
-  F2.est.2 = c();
-  beta = 2
-  
-  for(i in 1:length(thresh)){
-    y_hat = as.numeric(pred_val >= thresh[i])
-    TP = sum( y_hat*y_val==1 )     # True +
-    FP = sum( y_hat*(1-y_val)==1 ) # False +
-    FN = sum( (1-y_hat)*y_val==1 ) # False -
-    prec = TP/(TP + FP) ; rec = TP/(TP + FN)
-    F2.est.2[i] = (1+beta^2)*(prec*rec)/((beta^2)*prec + rec)
-  }
-  F2.gamma[j] <- max(F2.est.2)
-  print(j)
-}
-
-print(F2.gamma)
-
-plot(gamma, F2.gamma, type = 'b')
-abline(v = gamma[which.max(F2.gamma)] , col = 'red', lty = 2 )
-best.gamma = gamma[which.max(F2.gamma)] # gamma = 0.74
-best.gamma
-
-
-max(F2.gamma) # score que nos da el reweighting
-max(F2.est) # score que nos da el treshold optimization
-
-
-### Elijo el mejor:
-
-w = ifelse(Train$Revenue == 1, 1+best.gamma, 1-best.gamma) #Le damos el peso gamma = 0.8
-
-#Entrenamos el modelo con el valor de lambda optimizado y con los pesos w:
-logit.reg = glmnet(x = x_train,y = y_train, weights = w,
-                        family = 'binomial', alpha = 1,lambda = 0)
-
-# Optimizamos el umbral (nu) con el F4 para cada valor de w:
-pred = predict(logit.reg, s = 0, newx = x_val, type = 'response')
-
-thresh = seq(0.1,0.5,length.out = 100)
-F4.est = c()
-
-for(i in 1:length(thresh)){
-  y_hat = as.numeric(pred >= thresh[i])
-  TP = sum( y_hat== 1  & y_val==1 )    # True Positives/ 1 y 'yes'
-  FP = sum( y_hat == 1 & y_val==1 )     # False Positives/ 1 y 'no'
-  FN = sum( y_hat == 0 & y_val==1 )    # False Negatives / 0 y 'yes'
-  TN = sum( y_hat == 0 & y_val==1 )     # True  Negatives / 0 y 'no'
-  prec = TP/(TP + FP) ; rec = TP/(TP + FN)
-  F4.est[i] = (1+beta^2)*(prec*rec)/(beta^2*prec + rec)*100
-}
-
-thresh.opt = thresh[which(F4.est==max(F4.est))] #elegimos el umbral óptimo
-
-# Una vez que tenemos el umbral óptimo y el lambda óptimo para cada w, calculamos 
-# el F1:
-pred_test = predict(logit.reg, s = 0, newx = x_test, type = 'response')
-
-y_hat = as.numeric(pred_test >= thresh.opt)
-
-pred_test <- prediction(y_hat, y_test)
-perf_test <- performance(pred_test,"tpr","fpr")
-
-# Graficamos la curva ROC
-plot(perf_test, main="Curva ROC en el conjunto de TEST", colorize=T)
-
-auc_test <- performance(pred_test, measure = "auc")
-auc_test@y.values[[1]] # 0.8745, DE NUEVO, NO LE IMPORTA EL THRESHOLD
-
-
-
+tasa_error_test # 21.94% USANDO THRESH.OPT. 
+F2.est # 65.13 DE F2 score!
 
 
 
