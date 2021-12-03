@@ -65,7 +65,7 @@ datos$Weekend <- factor(datos$Weekend)
 
 
 # Vemos cuántas observaciones de cada categoría hay:
-table(datos$Revenue)
+]
 
 ### VARIABLES CATEGÓRICAS
 g1 <- ggplot(data=datos, aes(Month))+
@@ -148,8 +148,7 @@ numeric.var <- sapply(datos$Administrative, numeric.var)
 corr.matrix <- cor(datos$Administrative[,numeric.var])
 corrplot(corr.matrix, main="\nCorrelation Plot for Numerical Variables", method="number")
 
-$$$$$$$$$$$$$$$$$$$Sacando Outliers$$$$$$$$$$$$$$$$$
-  
+############ Sacando Outliers ###########
 
 datos$log = log(datos$Administrative_Duration + 1)
 boxplot(datos$log)
@@ -168,17 +167,68 @@ hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
 hola$log = log(hola$Administrative_Duration)
 boxplot(hola$log)
 
-$Reescalando los outliers superiores$
-{q0.01 = quantile(datos$Administrative_Duration, 0.01)  
+#Reescalando los outliers superiores#
 q0.99 = quantile(datos$Administrative_Duration, 0.99) 
-datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99}
+datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99
 
 $Volviendo a graficar para chequear que nos da bien la reescalación$
 hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
 hola$log = log(hola$Administrative_Duration)
 boxplot(hola$log)
 
+boxplot(datos$Administrative)
+
+q0.99 = quantile(datos$Administrative, 0.99) 
+datos$Administrative[which(datos$Administrative>q0.99)] = q0.99
 
 boxplot(datos$Administrative)
 
+boxplot(datos$Informational)
 
+q0.99 = quantile(datos$Informational, 0.99) 
+datos$Informational[which(datos$Informational>q0.99)] = q0.99
+boxplot(datos$Informational)
+
+boxplot(datos$ProductRelated)
+
+q0.99 = quantile(datos$ProductRelated, 0.99) 
+datos$ProductRelated[which(datos$ProductRelated>q0.99)] = q0.99
+boxplot(datos$ProductRelated)
+
+boxplot(datos$ProductRelated_Duration)
+
+q0.99 = quantile(datos$ProductRelated_Duration, 0.99) 
+datos$ProductRelated_Duration[which(datos$ProductRelated_Duration>q0.99)] = q0.99
+boxplot(datos$ProductRelated_Duration)
+
+##############Ploteo Conjunto de Variables##################
+
+plot(datos$ProductRelated_Duration,datos$ProductRelated, col=datos$Revenue)
+plot(datos$SpecialDay,datos$ProductRelated_Duration, col=datos$Revenue)
+plot(datos$Month,datos$SpecialDay, col=datos$Revenue)
+plot(datos$Weekend,datos$SpecialDay, col=datos$Revenue)
+
+plot(datos$Administrative_Duration,datos$Month,col=datos$Revenue)
+plot(datos$OperatingSystems,datos$Administrative_Duration,col=datos$Revenue)
+plot(datos$Browser,datos$Administrative_Duration,col=datos$Revenue)
+
+plot(datos$Informational_Duration,datos$Administrative_Duration,col=datos$Revenue)
+plot(datos$ProductRelated_Duration,datos$Administrative_Duration,col=datos$Revenue)
+
+############## 3/12/21 ##############
+
+#viendo un poco más distribución de variables.
+#ni ahi normalidad.
+hist(datos$Administrative)
+hist(datos$Administrative_Duration)
+hist(datos$ProductRelated)
+hist(datos$ProductRelated_Duration)
+hist(datos$SpecialDay)
+
+# Regresi?n robusta: (copiada de Gabriel)
+summary(r.rob <- rlm(crime ~ poverty + single, data = cdata))
+# El coef asociado a poverty (no significativo al 5%) ahora es positivo. 
+
+w <- data.frame(state = cdata$state, resid = r.rob$resid, weight = r.rob$w)
+w[c(1,2,3,9, 25, 51),]
+# --------------------------------------------------------------End.
