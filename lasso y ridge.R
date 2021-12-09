@@ -83,8 +83,8 @@ alpha.opt
 set.seed(123)
 ridge.cv = cv.glmnet(x = x_train, 
                      y = y_train,
-                     family = 'binomial', # problema de clasificación
-                     alpha = alpha.opt, # ridge
+                     family = 'binomial',
+                     alpha = alpha.opt, 
                      lambda = grid.l,
                      nfolds = 5,
                      type.measure="auc")
@@ -93,8 +93,8 @@ bestlam = ridge.cv$lambda.1se
 
 ridge.reg = glmnet(x = x_val, 
                    y = y_val,
-                   family = 'binomial', # problema de clasificación
-                   alpha = alpha.opt, # ridge
+                   family = 'binomial', 
+                   alpha = alpha.opt, 
                    lambda = bestlam)
 
 

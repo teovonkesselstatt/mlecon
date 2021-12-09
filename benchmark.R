@@ -62,7 +62,7 @@ perf_train <- performance(pred_train,"tpr","fpr")
 plot(perf_train, main="Curva ROC en el conjunto de TRAIN", colorize=T)
 
 auc <- performance(pred_train, measure = "auc")
-auc@y.values[[1]] # 0.9045
+auc@y.values[[1]] # 0.9045, pero no me importa esto
 
 ####################### Performance en el TEST: ################################
 
@@ -76,7 +76,7 @@ perf2 <- performance(pred2,"tpr","fpr")
 plot(perf2, main="Curva ROC en el conjunto de TEST", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
-auc_test@y.values[[1]] # 0.8671 IMPORTANTE
+auc_test@y.values[[1]] # 0.8671 MUY IMPORTANTE
 
 
 ######################## ELIGIENDO EL THRESHOLD ################################
