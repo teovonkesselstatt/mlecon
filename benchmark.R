@@ -1,6 +1,31 @@
 ################################################################################
-#################     Benchmark: Regresion Logistica                           #
+#################     Benchmark: Regresion Logistica    ########################
 ################################################################################
+rm(list=ls()) # Limpiamos la memoria.
+dev.off()     # Limpiamos la ventana gráfica
+
+datos = read.table('datos.csv',
+                   sep=',',header=T,dec='.',na.strings = "N/A")
+
+quiero.ver.con.weights = FALSE
+
+if (!quiero.ver.con.weights){
+  datos$weights = 1
+}
+
+datos$weights[which.min(datos$weights)]    
+
+datos$Month <- factor(datos$Month, levels = c("Feb", "Mar", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered = TRUE)
+datos$OperatingSystems <- factor(datos$OperatingSystems)
+datos$Browser <- factor(datos$Browser)
+datos$Region <- factor(datos$Region)
+datos$TrafficType <- factor(datos$TrafficType)
+datos$VisitorType <- factor(datos$VisitorType)
+datos$Revenue <- factor(datos$Revenue)
+datos$Weekend <- factor(datos$Weekend)
+
+######### Separo en TRAIN, TEST Y VALIDATION ###################################
+
 
 set.seed(123); id = sample(nrow(datos),0.8*nrow(datos))
 
@@ -8,10 +33,11 @@ Train=datos[id,] # Conjunto de training
 Test=datos[-id,]  # Conjunto de test
 
 
-# Recordemos que la libreria glmnet usa matrices, no data frames
+# Paso los df a matrices
 matrix_train = model.matrix( ~ .-1, Train)
 matrix_test = model.matrix(~.-1, Test)
 
+# Hago un set de Validacion para hacer Validation Set Approach
 set.seed(123); val_id = sample(nrow(matrix_train),0.3*nrow(matrix_train))
 
 matrix_val = matrix_train[val_id,]
@@ -40,14 +66,15 @@ prob_priori <- as.numeric(freq_table[2])
 ######### REGRESION LOGISTICA  #######################
 ######################################################
 
-logit.reg = glmnet(x = x_train, 
+logit.reg = glmnet(x = x_train[,-ncol(x_train)], 
                    y = y_train,
                    family = 'binomial', # problema de clasificación
                    alpha = 1, 
-                   lambda = 0) # sin regularizacion (reg logistica normal)
+                   lambda = 0,
+                   weights = x_train[,ncol(x_train)]) # sin regularizacion (reg logistica normal)
 
 
-pred_tr = predict(logit.reg, s = 0, newx = x_train, type = 'response')
+pred_tr = predict(logit.reg, s = 0, newx = x_train[,-ncol(x_train)], type = 'response')
 
 
 ####################### Performance en el TRAIN: ###############################
@@ -62,12 +89,12 @@ perf_train <- performance(pred_train,"tpr","fpr")
 plot(perf_train, main="Curva ROC en el conjunto de TRAIN", colorize=T)
 
 auc <- performance(pred_train, measure = "auc")
-auc@y.values[[1]] # 0.9045, pero no me importa esto
+auc@y.values[[1]] # 0.9045, pero no me importa esto. AHORA: 0.8297
 
 ####################### Performance en el TEST: ################################
 
 # Predicciones sobre datos TEST 
-pred_test = predict(logit.reg, s = 0 , newx = x_test, type = 'response')
+pred_test = predict(logit.reg, s = 0 , newx = x_test[, -ncol(x_test)], type = 'response')
 
 pred2 <- prediction(pred_test, y_test)
 perf2 <- performance(pred2,"tpr","fpr")
@@ -76,7 +103,7 @@ perf2 <- performance(pred2,"tpr","fpr")
 plot(perf2, main="Curva ROC en el conjunto de TEST", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
-auc_test@y.values[[1]] # 0.8671 MUY IMPORTANTE
+auc_test@y.values[[1]] # 0.8671 MUY IMPORTANTE. AHORA: 0.7963
 
 
 ######################## ELIGIENDO EL THRESHOLD ################################
@@ -84,10 +111,9 @@ auc_test@y.values[[1]] # 0.8671 MUY IMPORTANTE
 # Hago Validation Set Approach
 
 # Predicciones sobre datos de VALIDACION
-pred_val = predict(logit.reg, s = 0 , newx = x_val, type = 'response')
+pred_val = predict(logit.reg, s = 0 , newx = x_val[,-ncol(x_val)], type = 'response')
 
 thresh = seq(0.05,0.5,length.out = 200)
-thresh
 
 # Optimizamos el threshold eligiendo el que maximiza F1.
 F2.est = c();
@@ -102,16 +128,16 @@ for(i in 1:length(thresh)){
   F2.est[i] = (1+beta^2)*(prec*rec)/((beta^2)*prec + rec)
 }
 
-F2.est 
-plot(thresh, F2.est, type = 'b', bty = 'n')
+x11();plot(thresh, F2.est, type = 'b', bty = 'n')
 thresh.opt = thresh[which(F2.est==max(F2.est))]
 abline(v = thresh.opt , col = 'red', lty = 2 )
 
 # Diferencia de Punto de Corte Optimo vs Prob a Priori
-thresh.opt;  prob_priori # 0.1337 y 0.1534
+thresh.opt # 0.1337. AHORA: 0.1043
+prob_priori # 0.1524
 
 # Performance en Test:
-pred_test = predict(logit.reg, s = 0 , newx = x_test, type = 'response')
+pred_test = predict(logit.reg, s = 0 , newx = x_test[,-ncol(x_test)], type = 'response')
 y_hat = as.numeric(pred_test>= thresh.opt)
 
 TP = sum( y_hat*y_test==1 )     # True +
@@ -125,10 +151,10 @@ matriz.confusion = table(y_hat, y_test)
 matriz.confusion
 
 tasa_error_test = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-tasa_error_test # 21.94% USANDO THRESH.OPT. 
-F2.est # 65.13 DE F2 score!
+tasa_error_test # 21.94% USANDO THRESH.OPT. AHORA: 21.65%
+F2.est # 65.13 DE F2 score! AHORA: 0.5782
+auc_test@y.values[[1]] # 0.8671 MUY IMPORTANTE. AHORA: 0.7963
 
-
-
-
-
+x11();plot(sort(pred_test), ylab = 'Valor Predecido', xlab = 'Observación')
+abline(h = thresh.opt, col = "red")
+abline(h = prob_priori, col = "blue")

@@ -1,6 +1,32 @@
 ##########################################################
-############     TRAIN, VALIDATION Y  TEST     ###########
+################     RANDOM FOREST     ###################
 ##########################################################
+
+rm(list=ls()) # Limpiamos la memoria.
+dev.off()     # Limpiamos la ventana gráfica
+
+datos = read.table('datos.csv',
+                   sep=',',header=T,dec='.',na.strings = "N/A")
+
+quiero.ver.con.weights = FALSE
+
+if (!quiero.ver.con.weights){
+  datos$weights = 1
+}
+
+datos$weights[which.min(datos$weights)]    
+
+datos$Month <- factor(datos$Month, levels = c("Feb", "Mar", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered = TRUE)
+datos$OperatingSystems <- factor(datos$OperatingSystems)
+datos$Browser <- factor(datos$Browser)
+datos$Region <- factor(datos$Region)
+datos$TrafficType <- factor(datos$TrafficType)
+datos$VisitorType <- factor(datos$VisitorType)
+datos$Revenue <- factor(datos$Revenue)
+datos$Weekend <- factor(datos$Weekend)
+
+######### Separo en TRAIN, TEST Y VALIDATION ###################################
+
 
 library(rpart); library(ROCR); library(rpart.plot); library(ggplot2); library(randomForest)
 
@@ -8,9 +34,6 @@ set.seed(123); id = sample(nrow(datos),0.8*nrow(datos))
 
 Train=datos[id,] # Conjunto de training
 Test=datos[-id,]  # Conjunto de test
-
-dim(Train)
-dim(Test)
 
 # Vamos a hacer Validatoin Set CV, entonces separamos TRAIN en 2 grupos: 
 set.seed(123); id_validation = sample(nrow(Train),0.3*nrow(Train))
@@ -22,43 +45,41 @@ Train=Train[-id_validation,]
 ###    Random Forest    ###
 ###########################
 
-valores.m = c(6,7,8,9,10,11)      # Posibles valores a considerar de "m" (slide 29)
-valores.maxnode = c(80,90,100,110,120)   # Posibles valores  de complejidad de c/ árbol en el bosque (slide 29).
+valores.m = c(8,9,10,12,14,16)      # Posibles valores a considerar de "m"
+valores.maxnode = c(80,100,120,140,160)   # Posibles valores  de complejidad de c/ árbol en el bosque.
 parametros = expand.grid(valores.m = valores.m,valores.maxnode = valores.maxnode, auc = 0) 
-head(parametros,3) # Matriz de 25 filas x 3 columnas.
+head(parametros,3) # Matriz de 30 filas x 3 columnas.
 set.seed(123)
 for(i in 1:dim(parametros)[1]){ # i recorre la grilla de parámetros.
-  forest.oob  = randomForest(Revenue~.,
+  forest.oob  = randomForest(Revenue~. - weights,
                              data=Train,
                              mtry = parametros[i,1],   # Chupo "m" de la primera columna de la matriz parámetros. 
                              ntree=100,                # B (en la práctica B debería ser suficientemente grande como para permitirle al modelo profitar de la reducción de la varianza al promediar modelos)
                              maxnodes = parametros[i,2], # Chupo "complexity parameter" de la segunda columna de la matriz parámetros. 
-                             nodesize = 150,
-                             sampsize = nrow(Train)*0.8,
-                             importance = F)  
-  pred.acp = predict(forest.oob,type='prob', newdata = Train)
-  pred2 <- prediction(pred.acp[,2], Train$Revenue)
+                             nodesize = 50,
+                             sampsize = nrow(Train)*0.6,
+                             importance = F,
+                             weights = weights)  
+  pred.acp = predict(forest.oob,type='prob', newdata = Validation)
+  pred2 <- prediction(pred.acp[,2], Validation$Revenue)
   auc_test <- performance(pred2, measure = "auc")
   
   
-  parametros[i,3] = auc_test@y.values[[1]] # 0.8805 pero no me importa  
-  print(i)                                                                                    # Obviamente que podrías utilizar otra métrica para seleccionar modelos (F1, AUC, etc)
+  parametros[i,3] = auc_test@y.values[[1]] 
+  print(i)                                                                                   
 }
 
-parametros # m* = maxnode* = 15.
-
 library("scatterplot3d");
-x11(); scatterplot3d(parametros,type = "h", color = "blue")
 
 parametros[which.max(parametros[,3]),]
 
 set.seed(123)
-modelo.final = randomForest(Revenue~. ,                   # Ya seleccioné el modelo, quiero estimar la performance predictiva sobre el conjunto Test.
+modelo.final = randomForest(Revenue~. - weights,                   
                             data=Train,
-                            mtry = parametros[which.max(parametros[,3]),1],     # m*
+                            mtry = parametros[which.max(parametros[,3]),1], 
                             ntree = 100,               
-                            maxnodes = parametros[which.max(parametros[,3]),2], # complejidad*
-                            nodesize = 150,
+                            maxnodes = parametros[which.max(parametros[,3]),2],
+                            nodesize = 50,
                             sampsize = nrow(Train)*0.8,
                             importance=T)
 
@@ -70,8 +91,7 @@ perf2 <- performance(pred2,"tpr","fpr")
 plot(perf2, main="Curva ROC (in-sample) Random Forest", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
-auc_test@y.values[[1]] # 0.8796, bien
-
+auc_test@y.values[[1]] # 0.8795, bien
 
 
 ###################### EXTENSIONES: ############################################
@@ -99,11 +119,8 @@ for(i in 1:length(thresh)){
   prec = TP/(TP + FP) ; rec = TP/(TP + FN)
   F2.est[i] <- (1+beta^2)*(prec*rec)/(beta^2*prec + rec)*100
 }
-F2.est 
-plot(thresh, F2.est, type = 'b', bty = 'n')
-thresh.opt = thresh[max(which(F2.est==max(F2.est)))]
-abline(v = thresh.opt[1] , col = 'red', lty = 2 )
 
+thresh.opt = thresh[max(which(F2.est==max(F2.est)))]
 
 pred.acp.Prob.test= predict(modelo.final,type='prob', newdata = Test)
 
@@ -122,5 +139,14 @@ matriz.confusion = table(y_hat, Test$Revenue)
 matriz.confusion
 
 tasa_error_test = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-tasa_error_test # 13.06% USANDO THRESH.OPT. 
-F2.est #71.60
+tasa_error_test # 13.87%. AHORA: IGUAL
+F2.est #71.25. AHORA: IGUAL
+auc_test@y.values[[1]] # 0.8918. AHORA: IGUAL
+
+
+x11(); scatterplot3d(parametros,type = "h", color = "blue", main = "AUC para cada par de hiperparámetros")
+
+
+
+
+

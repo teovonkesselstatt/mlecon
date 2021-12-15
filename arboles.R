@@ -2,6 +2,32 @@
 ############     TRAIN, VALIDATION Y  TEST     ###########
 ##########################################################
 
+
+rm(list=ls()) # Limpiamos la memoria.
+dev.off()     # Limpiamos la ventana gráfica
+
+datos = read.table('datos.csv',
+                   sep=',',header=T,dec='.',na.strings = "N/A")
+
+quiero.ver.con.weights = FALSE # En este caso da lo mismo con o sin weights!!!
+
+if (!quiero.ver.con.weights){
+  datos$weights = 1
+}
+
+datos$weights[which.min(datos$weights)]    
+
+datos$Month <- factor(datos$Month, levels = c("Feb", "Mar", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), ordered = TRUE)
+datos$OperatingSystems <- factor(datos$OperatingSystems)
+datos$Browser <- factor(datos$Browser)
+datos$Region <- factor(datos$Region)
+datos$TrafficType <- factor(datos$TrafficType)
+datos$VisitorType <- factor(datos$VisitorType)
+datos$Revenue <- factor(datos$Revenue)
+datos$Weekend <- factor(datos$Weekend)
+
+######### Separo en TRAIN, TEST Y VALIDATION ###################################
+
 library(rpart); library(ROCR); library(rpart.plot); library(ggplot2)
 
 set.seed(123); id = sample(nrow(datos),0.8*nrow(datos))
@@ -9,10 +35,6 @@ set.seed(123); id = sample(nrow(datos),0.8*nrow(datos))
 Train=datos[id,] # Conjunto de training
 Test=datos[-id,]  # Conjunto de test
 
-dim(Train)
-dim(Test)
-
-# Vamos a hacer Validatoin Set CV, entonces separamos TRAIN en 2 grupos: 
 set.seed(123); id_validation = sample(nrow(Train),0.3*nrow(Train))
 
 Validation = Train[id_validation,]
@@ -21,31 +43,33 @@ Train=Train[-id_validation,]
 ######################
 ###     Árboles    ###
 ######################
-
-# Repasamos los parametros del modelo rpart
-help(rpart) #method: class y anova para regresión.
-#weights: igual que antes, podemos repesar a las observaciones
-
-# xval: folds para CV
-
-
-
+help("rpart")
 set.seed(123) 
-arbol = rpart(Revenue ~ ., data=Train, 
-                    method="class", 
-                    parms = list( split = "gini"),       # Métrica con la que determinan los cortes.
-                    control= rpart.control(minsplit = 100,       # Cantidad minima de observaciones en nodo (antes de partir)
-                                           xval = 10,            # cantidad de folds de validación
-                                           cp = 0.0001,           # Umbral de mejora mínima (equivale a "alpha" en escala [0,1]).
-                                           maxdepth = 10 )      # Longitud maxima del arbol.
+arbol = rpart(Revenue ~ . - weights,
+              data=Train, 
+              method="class", 
+              parms = list( split = "gini"),       
+              control= rpart.control(minsplit = 100,      
+              xval = 10,            
+              cp = 0.00001,          
+              maxdepth = 10,
+              weights = weights)     
 )
 
-rpart.plot(arbol, type = 2, cex=0.75)
+# Estimación por VC del tamaño optimo del árbol:
+errores <-printcp(arbol) # Elegimos el valor de cp que minimiza el error 
+which.min(errores[,4])
+errores[which.min(errores[,4]),1]
+# estimado por VC (columna xerror).
+
+
+arbol.podado = prune(arbol,cp = errores[which.min(errores[,4]),1] )
+
+rpart.plot(arbol, type =2, cex=0.75, main = "Árbol de Clasificación") 
 
 # Importancia de cada variable en la decisión:
-arbol$variable.importance # Importancia de cada covariable (feature).
 
-importancia <- arbol$variable.importance
+importancia <- arbol.podado$variable.importance
 nombres <- names(importancia)
 
 df <- cbind(importancia, nombres)
@@ -55,45 +79,23 @@ df<- data.frame(rbind(df, zeros))
 df$importancia <- as.numeric(df$importancia)
 df$nombres <- as.factor(df$nombres)
 
-ggplot(df, aes(x=importancia, y=nombres))+geom_line(aes(colour=nombres, size=2), show.legend = F)
-
-
-
-# Estimación por VC del tamaño optimo del árbol:
-### Como "podar el árbol":
-errores <-printcp(arbol) # Elegimos el valor de cp que minimiza el error 
-which.min(errores[,4])
-errores[which.min(errores[,4]),1]
-# estimado por VC (columna xerror).
-
-
-arbol.podado = prune(arbol,cp = errores[which.min(errores[,4]),1] )
-
-rpart.plot(arbol.podado, type =2, cex=0.75) 
-
-
 ### Predicciones con el arbol:
 
 pred= predict(arbol.podado, type='class')
-head(pred,3)
-
 
 # Matriz de Confusion (datos de train):
 table(pred,Train$Revenue)
 
 1-sum(diag(table(pred,Train$Revenue)))/sum(table(pred,Train$Revenue))
-#T.Error = 0.0899
 
 # Curva ROC
 library(ROCR)
 
 # Curva ROC
-pred.acp = predict(arbol.podado,type='prob', newdata = Train)
+pred.acp = predict(arbol,type='prob', newdata = Train)
 
 pred2 <- prediction(pred.acp[,2], Train$Revenue)
 perf2 <- performance(pred2,"tpr","fpr")
-
-plot(perf2, main="Curva ROC (in-sample) Árbol", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
 auc_test@y.values[[1]] # 0.8805 pero no me importa 
@@ -103,8 +105,6 @@ pred.acp.Test = predict(arbol.podado,type='prob', newdata = Test)
 
 pred2 <- prediction(pred.acp.Test[,2], Test$Revenue)
 perf2 <- performance(pred2,"tpr","fpr")
-
-plot(perf2, main="Curva ROC (in-sample) Árbol", colorize=T)
 
 auc_test <- performance(pred2, measure = "auc")
 auc_test@y.values[[1]] # 0.8474
@@ -140,7 +140,6 @@ for(i in 1:length(thresh)){
   F2.est[i] <- (1+beta^2)*(prec*rec)/(beta^2*prec + rec)*100
 }
 F2.est 
-plot(thresh, F2.est, type = 'b', bty = 'n')
 thresh.opt = thresh[max(which(F2.est==max(F2.est)))]
 abline(v = thresh.opt[1] , col = 'red', lty = 2 )
 
@@ -164,5 +163,10 @@ matriz.confusion = table(y_hat, Test$Revenue)
 matriz.confusion
 
 tasa_error_test = 1 - sum(diag(matriz.confusion))/sum(matriz.confusion)
-tasa_error_test # 13.75% USANDO THRESH.OPT. 
-F2.est #71.18
+tasa_error_test # 13.75%. AHORA: IGUAL
+F2.est #71.18. AHORA: IGUAL
+auc_test@y.values[[1]] # 0.8478 AHORA: IGUAL
+
+x11();ggplot(df, aes(x=importancia, y=nombres))+geom_line(aes(colour=nombres, size=2), show.legend = F)
+x11();rpart.plot(arbol, type =2, cex=0.75, main = "Árbol de Clasificación") 
+

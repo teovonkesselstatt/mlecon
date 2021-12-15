@@ -21,29 +21,6 @@ datos = read.table('online_shoppers_intention.csv',
 ################## Analisis Exploratorio #############
 ######################################################
 
-#### Diccionario de variables:
-# "Administrative": number of different administrative pages visited in that session
-# "Administrative Duration": total time spent on those pages
-# "Informational": number of different informational pages visited in that session
-# "Informational Duration": total time spent on those pages
-# "Product Related": number of different product related pages visited in that session
-# "Product Related Duration": total time spent on those pages
-
-# "Bounce Rate": percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
-# "Exit Rate":  the percentage of pageviews that were the last in the session.
-# "Page Value": average value for a web page that a user visited before completing an e-commerce transaction.
-
-# "Special Day": indicates the closeness of the site visiting time to a specific special day
-# "Month": No hay enero ni abril
-# "Operating Systems"
-# "Browser"
-# "Region"
-# "Traffic Type": ??
-
-# "Visitor type": ??
-# "Weekend": Boolean for weekend or not
-# "Revenue": If the person bought or not
-
 ### MISSINGS:
 sum(is.na(datos)==TRUE)  #No hay missings
 
@@ -61,6 +38,18 @@ datos$TrafficType <- factor(datos$TrafficType)
 datos$VisitorType <- factor(datos$VisitorType)
 datos$Revenue <- factor(datos$Revenue)
 datos$Weekend <- factor(datos$Weekend)
+
+# Regresión robusta: ###########################################################
+
+library(robust)
+attach(datos)
+r.weights <- glmRob(Revenue ~ ExitRates + Administrative + Administrative_Duration + Informational + Informational_Duration + ProductRelated + ProductRelated_Duration, family = binomial(), data = datos, x = TRUE, y = TRUE)
+datos$weights = r.weights$weights
+which(r.weights$weights < 0.1) # outliers!
+d = ncol(datos)
+datos = datos[,c(1:(d-2), d,d -1)]
+
+write.csv(datos,"datos.csv", row.names = FALSE)
 
 # Vemos cuántas observaciones de cada categoría hay:
 
@@ -122,12 +111,11 @@ grid.arrange(g5, g6, g7, g8, ncol=2)
 grid.arrange(g9, g10, g11, g12, ncol=2)
 
 ## CORRELACION ENTRE VARIABLES (Graficos lindos de correlaciones)
-require(corrplot) || install.packages('corrplot')  
 library(corrplot)
 
-numeric.var <- sapply(datos$Administrative, numeric.var)
-corr.matrix <- cor(datos$Administrative[,numeric.var])
-corrplot(corr.matrix, main="\nCorrelation Plot for Numerical Variables", method="number")
+datos.numeric = datos[ , purrr::map_lgl(datos, is.numeric)]
+corr.matrix <- cor(datos.numeric)
+x11(); corrplot(corr.matrix, main="\nCorrelation Plot for Numerical Variables", method="number")
 
 ###Sacando Outliers###
   
@@ -141,21 +129,19 @@ plot(datos$OperatingSystems,datos$Administrative_Duration)
 
 datos$administrative1 <- datos[datos$Administrative ==0,]
 
-boxplot(datos$OperatingSystems if datos$OperatingSystems>0)
+sub.set <- subset(datos, !(datos$Administrative_Duration == 0)) # saco todas las observaciones donde Administrative duration es 0
+sub.set$log = log(sub.set$Administrative_Duration) # les saco el log
+boxplot(sub.set$log) # hago un boxplot con esos datos
 
-remove = c(0)
-hola <- subset(datos, !(datos$Administrative_Duration %in% remove))
-hola$log = log(hola$Administrative_Duration)
-boxplot(hola$log)
+PERO NO HAGO NADA AL RESPECTO??
 
 #Reescalando los outliers superiores#
 q0.99 = quantile(datos$Administrative_Duration, 0.99) 
 datos$Administrative_Duration[which(datos$Administrative_Duration>q0.99)] = q0.99
 
 #Volviendo a graficar para chequear que nos da bien la reescalación#
-hola <- subset(datos, !(datos$Administrative_Duration))
-hola$log = log(hola$Administrative_Duration+1)
-boxplot(hola$log)
+datos$log = log(datos$Administrative_Duration+1)
+boxplot(datos$log)
 
 boxplot(datos$Administrative)
 
@@ -179,7 +165,6 @@ boxplot(datos$ProductRelated_Duration)
 plot(datos$ProductRelated_Duration,datos$ProductRelated, col=datos$Revenue)
 plot(datos$SpecialDay,datos$ProductRelated_Duration, col=datos$Revenue)
 plot(datos$Month,datos$SpecialDay, col=datos$Revenue)
-plot(datos$Weekend,datos$SpecialDay, col=datos$Revenue)
 plot(datos$Administrative_Duration,datos$Month,col=datos$Revenue)
 plot(datos$OperatingSystems,datos$Administrative_Duration,col=datos$Revenue)
 plot(datos$Browser,datos$Administrative_Duration,col=datos$Revenue)
@@ -196,16 +181,6 @@ hist(datos$ProductRelated)
 hist(datos$ProductRelated_Duration)
 hist(datos$SpecialDay)
 
-# Regresión robusta: (copiada de Gabriel)
-r.weights <- rlm(datos$Revenue ~ ., data = datos)
-w <- data.frame(Revenue = datos$Revenue, resid = r.weights$resid, weight = r.weights$w)
-w[c(1,2,3,9, 25, 51),]
-
-#Sacando variables
-datos$BounceRates=NULL
-datos$ExitRates=NULL
-datos$PageValues=NULL
-
 #metiendo variables nuevas
 #1
 mean(datos$PageValues)
@@ -216,12 +191,6 @@ datos = datos[,c(1:17,19,18)]
 
 #2
 datos$PageValuesH=NULL
-
-mean(datos$Administrative)
-hist(datos$Administrative)
-datos$AdministrativeH = ifelse(datos$Administrative > 5, 1, 0)
-datos = datos[,c(1:17,19,18)]
-#empeora un touch
 
 #3
 datos$AdministrativeH=NULL
